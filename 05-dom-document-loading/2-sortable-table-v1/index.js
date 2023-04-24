@@ -61,7 +61,7 @@ export default class SortableTable {
 
   getHeaderBody() {
     let headerBody = this.headerConfig.map((item) => {
-      return `<div class="sortable-table__cell" data-id="${item.id}" data-sort_type ="${item.sortType}" data-sortable="${item.sortable}" data-order="asc">
+      return `<div class="sortable-table__cell" data-id="${item.id}" data-sort_type ="${item.sortType}" data-sortable="${item.sortable}">
         <span>${item.title}</span>
       </div>`
     });
@@ -128,6 +128,14 @@ export default class SortableTable {
 
   sortString = (a, b) => {
     return a.localeCompare(b, ['ru-Ru-u-kf-upper', 'en-US-u-kf-upper']);
+  }
+
+  remove() {
+    this.element.remove();
+  }
+
+  destroy() {
+    this.remove();
   }
 }
 

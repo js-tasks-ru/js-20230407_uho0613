@@ -4,6 +4,7 @@ import fetchJson from './utils/fetch-json.js';
 const BACKEND_URL = 'https://course-js.javascript.ru';
 
 export default class ColumnChart {
+  subElements = [];
   chartHeight = 50;
   data = [];
 
@@ -19,23 +20,8 @@ export default class ColumnChart {
     this.link = link;
     this.formatHeading = formatHeading;
     this.render();
+    this.initSubElements();
     this.update(range.from, range.to);
-  }
-
-  async update(from, to) {
-    const requestUrl = new URL(this.url, BACKEND_URL);
-    requestUrl.searchParams.set('from', from);
-    requestUrl.searchParams.set('to', to);
-    const response = await fetch(requestUrl.toString());
-    const data = await response.json();
-    this.setNewData(Object.values(data));
-    this.updateElement(this.data);
-  }
-
-  setNewData(data = []) {
-    this.data = data;
-    this.maxValue = Math.max(...data);
-    this.scale = this.chartHeight / this.maxValue;
   }
 
   render() {
@@ -55,11 +41,35 @@ export default class ColumnChart {
     this.element = elementWrapper.firstElementChild;
   }
 
+  initSubElements() {
+    for (const element of this.element.querySelectorAll('[data-element]')) {
+      this.subElements[element.dataset.element] = element;
+    }
+  }
+
+  async update(from, to) {
+    const response = await fetch(this.getPreparedUrl(from, to));
+    const data = await response.json();
+    this.setNewData(Object.values(data));
+    this.updateElement(this.data);
+  }
+
+  getPreparedUrl(from, to) {
+    const requestUrl = new URL(this.url, BACKEND_URL);
+    requestUrl.searchParams.set('from', from);
+    requestUrl.searchParams.set('to', to);
+    return requestUrl.toString();
+  }
+
+  setNewData(data = []) {
+    this.data = data;
+    this.maxValue = Math.max(...data);
+    this.scale = this.chartHeight / this.maxValue;
+  }
+
   updateElement(data = []) {
-    let body = this.element.querySelector('[data-element="body"]');
-    let header = this.element.querySelector('[data-element="header"]');
-    header.textContent = this.data.reduce((partialSum, a) => partialSum + a, 0)
-    body.innerHTML = this.getBodyRows(data);
+    this.subElements.header.textContent = this.data.reduce((partialSum, item) => partialSum + item, 0)
+    this.subElements.body.innerHTML = this.getBodyRows(data);
     this.element.classList.remove('column-chart_loading');
   }
 

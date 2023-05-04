@@ -27,7 +27,10 @@ export default class SortableTable {
     this.render();
     this.initSubElements();
     this.initArrow();
-    this.sortOnServer(sorted.id, sorted.order);
+    this.loadData(sorted.id, sorted.order)
+      .then((data) => {
+        this.updateTable(sorted.id, sorted.order);
+      })
   }
 
   render() {
@@ -89,7 +92,7 @@ export default class SortableTable {
 
   getBody() {
     return `<div data-element="body" class="sortable-table__body">
-       ${this.getRowsForBody()};
+       ${this.getRowsForBody()}
 </div>`
   }
 
@@ -104,7 +107,7 @@ export default class SortableTable {
   getBodyRow(data = []) {
     return `<a href="/products/${data.path ? data.path : '#'}" class="sortable-table__row">
              ${this.getCellsForRow(data)}
-      </a>`
+      </a>`;
   }
 
   getCellsForRow(data = []) {
@@ -117,6 +120,7 @@ export default class SortableTable {
   }
 
   sortByClick = (event) => {
+    this.element.classList.add('sortable-table_loading');
     const direction = {
       asc: 'desc',
       desc: 'asc'
@@ -127,11 +131,18 @@ export default class SortableTable {
       return;
     }
     const {id, order} = sortElement.dataset;
-    this.isSortLocally ? this.sortOnClient(id, direction[order]) : this.sortOnServer(id, direction[order]);
+    this.getSortFunction()(id, direction[order])
+      .then((data) => {
+        this.updateTable(id, direction[order]);
+      })
 
   }
 
-  sortOnClient(field = 'title', order = 'asc') {
+  getSortFunction() {
+    return this.isSortLocally ? this.sortOnClient : this.sortOnServer;
+  }
+
+  async sortOnClient(field = 'title', order = 'asc') {
     const direction = {
       'asc': 1,
       'desc': -1
@@ -141,26 +152,36 @@ export default class SortableTable {
     }
     const sortFunction = this.columns[field].dataset.sort_type === 'number' ? this.sortNumber : this.sortString;
     const resultArray = [...this.data];
-    this.data = resultArray.sort(function (a, b) {
+    return resultArray.sort(function (a, b) {
       return direction[order] * sortFunction(a[field], b[field]);
     });
-    this.updateTable(field, order);
+  }
+
+  updateTable(field = 'title', order = 'asc') {
+    if (this.columns[field].dataset.sortable === 'false') {
+      throw new Error('column can not be sortable');
+    }
+    this.currentSortingField = field;
+    this.currentOrder = order;
+    this.columns[field].append(this.arrow);
+    this.columns[field].dataset.order = order;
+    this.subElements.body.innerHTML = this.getRowsForBody(this.data);
+    this.element.classList.remove('sortable-table_loading');
   }
 
   async sortOnServer(id = 'title', order = 'asc', to = 20, from = 0) {
-    this.element.classList.add('sortable-table_loading');
     this.currentSortingField = id;
     this.currentCountProduct = to - from;
-    this.data = await this.loadData(id, order, from, to);
-    this.updateTable(id, order);
-    this.element.classList.remove('sortable-table_loading');
+    return await this.loadData(id, order, from, to);
   }
 
   downloadDataByScroll = (event) => {
     const elementParam = this.element.getBoundingClientRect();
     if (elementParam.bottom < document.documentElement.clientHeight + 100) {
-      this.sortOnServer(this.currentSortingField, this.currentOrder, this.currentCountProduct + this.countDownload
-      );
+      this.sortOnServer(this.currentSortingField, this.currentOrder, this.currentCountProduct + this.countDownload)
+        .then((data) => {
+          this.updateTable(this.currentSortingField, this.currentOrder)
+        });
     }
   }
 
@@ -173,19 +194,9 @@ export default class SortableTable {
     return requestUrl.toString();
   }
 
-  async loadData(id, order, from, to) {
-    return await fetchJson(this.getPreparedUrl(id, order, from, to));
-  }
-
-  updateTable(field = 'title', order = 'asc') {
-    if (this.columns[field].dataset.sortable === 'false') {
-      throw new Error('column can not be sortable');
-    }
-    this.currentSortingField = field;
-    this.currentOrder = order;
-    this.columns[field].append(this.arrow);
-    this.columns[field].dataset.order = order;
-    this.subElements.body.innerHTML = this.getRowsForBody(this.data);
+  async loadData(id, order, from = 0, to = 20) {
+    this.data = await fetchJson(this.getPreparedUrl(id, order, from, to));
+    return this.data;
   }
 
   sortNumber = (a, b) => {

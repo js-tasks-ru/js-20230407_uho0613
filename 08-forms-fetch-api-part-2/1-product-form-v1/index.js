@@ -20,62 +20,11 @@ export default class ProductForm {
   async render() {
     await this.productDataInit();
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = `<div class="product-form">
-    <form data-element="productForm" class="form-grid" name="productForm">
-      <input name="product_id" hidden>
-      <div class="form-group form-group__half_left">
-        <fieldset>
-          <label class="form-label">Название товара</label>
-          <input required="" type="text" name="title" class="form-control" placeholder="Название товара">
-        </fieldset>
-      </div>
-      <div class="form-group form-group__wide">
-        <label class="form-label">Описание</label>
-        <textarea required="" class="form-control" name="description" data-element="productDescription" placeholder="Описание товара"></textarea>
-      </div>
-      <div class="form-group form-group__wide" data-element="sortable-list-container">
-        <label class="form-label">Фото</label>
-        <div data-element="imageListContainer">
-        <button type="button" name="uploadImage" class="button-primary-outline  fit-content"><span>Загрузить</span></button>
-        <input name="imageInput" type="file" accept="image/*" hidden="">
-      </div>
-      <div class="form-group form-group__half_left">
-        <label class="form-label">Категория</label>
-        <select class="form-control" name="subcategory">
-            ${await this.getSubcategoryOptions()}
-        </select>
-      </div>
-      <div class="form-group form-group__half_left form-group__two-col">
-        <fieldset>
-          <label class="form-label">Цена ($)</label>
-          <input required="" type="number" name="price" class="form-control" placeholder="100">
-        </fieldset>
-        <fieldset>
-          <label class="form-label">Скидка ($)</label>
-          <input required="" type="number" name="discount" class="form-control" placeholder="0">
-        </fieldset>
-      </div>
-      <div class="form-group form-group__part-half">
-        <label class="form-label">Количество</label>
-        <input required="" type="number" class="form-control" name="quantity" placeholder="1">
-      </div>
-      <div class="form-group form-group__part-half">
-        <label class="form-label">Статус</label>
-        <select class="form-control" name="status">
-          <option value="0">Неактивен</option>
-          <option value="1">Активен</option>
-        </select>
-      </div>
-      <div class="form-buttons">
-        <button type="submit" name="save" class="button-primary-outline">
-          Сохранить товар
-        </button>
-      </div>
-    </form>
-  </div>`;
+    wrapper.innerHTML = this.getTemplate();
     this.element = wrapper.firstElementChild;
     this.initSubElements();
     this.form.addEventListener('submit', this.saveProductData)
+    await this.addSubCategories();
     this.initFormData();
     return this.element;
   }
@@ -108,6 +57,16 @@ export default class ProductForm {
     this.productId = this.productData.id;
     this.initFormData();
     this.element.dispatchEvent(customEvent)
+  }
+
+  async addSubCategories() {
+    this.form.subcategory;
+    const categoryList = await this.loadCategories();
+    for (const category of categoryList) {
+      for (const subCategory of category.subcategories) {
+        this.form.subcategory.add(new Option(category.title + " > " + subCategory.title,subCategory.id));
+      }
+    }
   }
 
   initFormData() {
@@ -146,23 +105,59 @@ export default class ProductForm {
     return this.productData.images;
   }
 
-  sendImage() {
-    this.subElements.productForm.imageInput.addEventListener('change', (event) => {
-      this.subElements.productForm.uploadImage.classList.add("is-loading");
-      let newForm = new FormData();
-      newForm.append('image', event.target.files[0]);
-      fetch('https://api.imgur.com/3/image', {
-        method: "POST",
-        headers: {
-          Authorization: "Client-ID " + IMGUR_CLIENT_ID
-        },
-        body: newForm
-      }).then((data) => {
-        console.log(data);
-      }).catch((error) => {
-        console.log(error);
-      });
-    });
+  getTemplate() {
+    return `<div class="product-form">
+    <form data-element="productForm" class="form-grid" name="productForm">
+      <input name="product_id" hidden>
+      <div class="form-group form-group__half_left">
+        <fieldset>
+          <label class="form-label">Название товара</label>
+          <input required="" type="text" name="title" class="form-control" placeholder="Название товара">
+        </fieldset>
+      </div>
+      <div class="form-group form-group__wide">
+        <label class="form-label">Описание</label>
+        <textarea required="" class="form-control" name="description" data-element="productDescription" placeholder="Описание товара"></textarea>
+      </div>
+      <div class="form-group form-group__wide" data-element="sortable-list-container">
+        <label class="form-label">Фото</label>
+        <div data-element="imageListContainer">
+        <button type="button" name="uploadImage" class="button-primary-outline  fit-content"><span>Загрузить</span></button>
+        <input name="imageInput" type="file" accept="image/*" hidden="">
+      </div>
+      <div class="form-group form-group__half_left">
+        <label class="form-label">Категория</label>
+        <select class="form-control" name="subcategory">
+        </select>
+      </div>
+      <div class="form-group form-group__half_left form-group__two-col">
+        <fieldset>
+          <label class="form-label">Цена ($)</label>
+          <input required="" type="number" name="price" class="form-control" placeholder="100">
+        </fieldset>
+        <fieldset>
+          <label class="form-label">Скидка ($)</label>
+          <input required="" type="number" name="discount" class="form-control" placeholder="0">
+        </fieldset>
+      </div>
+      <div class="form-group form-group__part-half">
+        <label class="form-label">Количество</label>
+        <input required="" type="number" class="form-control" name="quantity" placeholder="1">
+      </div>
+      <div class="form-group form-group__part-half">
+        <label class="form-label">Статус</label>
+        <select class="form-control" name="status">
+          <option value="0">Неактивен</option>
+          <option value="1">Активен</option>
+        </select>
+      </div>
+      <div class="form-buttons">
+        <button type="submit" name="save" class="button-primary-outline">
+          Сохранить товар
+        </button>
+      </div>
+    </form>
+  </div>`
   }
 
   initSubElements() {
@@ -170,19 +165,6 @@ export default class ProductForm {
       this.subElements[element.dataset.element] = element;
     }
     this.form = this.subElements.productForm;
-  }
-
-  async getSubcategoryOptions() {
-    let subcategory = [];
-    const categories = await this.loadCategories();
-    for (const category of categories) {
-      subcategory = subcategory.concat(
-        category.subcategories.map(
-          item => `<option value="${item.id}">${category.title + " &gt; " + item.title}</option>`
-        )
-      );
-    }
-    return subcategory.join('');
   }
 
   async loadCategories() {
@@ -212,5 +194,15 @@ export default class ProductForm {
                 </button>
             </li>`;
     }).join('')}</ul>`
+  }
+
+  remove() {
+    this.element.remove();
+  }
+
+  destroy() {
+    this.remove();
+    this.productData = {};
+    this.subElements = [];
   }
 }

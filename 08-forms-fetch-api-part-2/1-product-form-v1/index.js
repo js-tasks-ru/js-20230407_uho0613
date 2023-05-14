@@ -4,33 +4,43 @@ import {sum} from "../../01-intro/1-sum";
 
 const IMGUR_CLIENT_ID = '28aaa2e823b03b1';
 const BACKEND_URL = 'https://course-js.javascript.ru';
+const IMGUR_API_URL = 'https://api.imgur.com/3/image';
 
 export default class ProductForm {
 
   mainPathForData = '/api/rest/';
   categoryPartPath = 'categories';
   productsPartPath = 'products'
-  productData = {};
+  productData = {
+    images: []
+  };
   subElements = [];
 
-  constructor(productId = null) {
+  constructor(productId = '') {
     this.productId = productId;
   }
 
   async render() {
-    await this.productDataInit();
     const wrapper = document.createElement('div');
     wrapper.innerHTML = this.getTemplate();
     this.element = wrapper.firstElementChild;
     this.initSubElements();
-    this.form.addEventListener('submit', this.saveProductData)
-    await this.addSubCategories();
+    this.initListeners();
+    await Promise.all([this.addSubCategories(), this.productDataInit()]);
     this.initFormData();
     return this.element;
   }
 
+  initListeners() {
+    this.form.addEventListener('submit', this.saveProductData)
+    this.form.uploadImage.addEventListener('click', (event) => {
+      this.form.imageInput.click();
+    });
+    this.form.imageInput.addEventListener('change', this.sendImage)
+  }
+
   async productDataInit() {
-    if (this.productId === null) {
+    if (!this.productId) {
       return;
     }
     const url = new URL(this.mainPathForData + this.productsPartPath, BACKEND_URL);
@@ -64,7 +74,7 @@ export default class ProductForm {
     const categoryList = await this.loadCategories();
     for (const category of categoryList) {
       for (const subCategory of category.subcategories) {
-        this.form.subcategory.add(new Option(category.title + " > " + subCategory.title,subCategory.id));
+        this.form.subcategory.add(new Option(category.title + " > " + subCategory.title, subCategory.id));
       }
     }
   }
@@ -82,10 +92,26 @@ export default class ProductForm {
     this.form.description.value = escapeHtml(this.productData.description);
     this.form.status.value = this.productData.status;
     this.form.subcategory.value = escapeHtml(this.productData.subcategory);
-    this.form.uploadImage.addEventListener('click', (event) => {
-      this.form.imageInput.click();
-    });
   }
+
+  sendImage = async (event) => {
+    const formData = new FormData();
+    const file = event.target.files[0];
+
+    try {
+      formData.append('image', file);
+      let result = await fetch(IMGUR_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: "Client-ID " + IMGUR_CLIENT_ID
+        },
+        body: formData
+      });
+      this.addImageRow({url: result.link, source: file.name});
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   getFormData() {
     return {
@@ -122,6 +148,7 @@ export default class ProductForm {
       <div class="form-group form-group__wide" data-element="sortable-list-container">
         <label class="form-label">Фото</label>
         <div data-element="imageListContainer">
+        <ul class="sortable-list"></ul>
         <button type="button" name="uploadImage" class="button-primary-outline  fit-content"><span>Загрузить</span></button>
         <input name="imageInput" type="file" accept="image/*" hidden="">
       </div>
@@ -165,6 +192,7 @@ export default class ProductForm {
       this.subElements[element.dataset.element] = element;
     }
     this.form = this.subElements.productForm;
+    this.imageList = this.subElements.imageListContainer.querySelector('.sortable-list');
   }
 
   async loadCategories() {
@@ -180,8 +208,13 @@ export default class ProductForm {
     if (!this.productData.images) {
       return '';
     }
-    return `<ul class="sortable-list">${this.productData.images.map((image) => {
-      return `<li class="products-edit__imagelist-item sortable-list__item" style="">
+    return this.productData.images.map((image) => {
+      return this.getImageRow(image);
+    }).join('');
+  }
+
+  getImageRow(image) {
+    return `<li class="products-edit__imagelist-item sortable-list__item" style="">
                 <input type="hidden" name="url" value="${image.url}">
                 <input type="hidden" name="source" value="${image.source}">
                  <span>
@@ -193,7 +226,11 @@ export default class ProductForm {
                     <img src="icon-trash.svg" data-delete-handle="" alt="delete">
                 </button>
             </li>`;
-    }).join('')}</ul>`
+  }
+
+  addImageRow(image) {
+    this.imageList.insertAdjacentHTML('beforeend', this.getImageRow(image));
+    this.productData.images.push(image);
   }
 
   remove() {

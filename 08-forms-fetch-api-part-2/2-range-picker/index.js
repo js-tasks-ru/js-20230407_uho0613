@@ -2,20 +2,6 @@ export default class RangePicker {
   subElements = [];
   monthQty;
   currentDate;
-  monthNames = {
-    1: "January",
-    2: "February",
-    3: "March",
-    4: "April",
-    5: "May",
-    6: "June",
-    7: "July",
-    8: "August",
-    9: "September",
-    10: "October",
-    11: "November",
-    12: "December",
-  };
 
   constructor({
     monthQty = 2,
@@ -95,8 +81,7 @@ export default class RangePicker {
   }
 
   getCalendars() {
-
-    let monthHtml = [];
+    const monthHtml = [];
     this.currentDate = new Date(this.from);
     this.currentDate.setDate(1);
     for (let i = 0; i < this.monthQty; i++) {
@@ -106,18 +91,13 @@ export default class RangePicker {
   }
 
   getMonth() {
+    const monthName = this.currentDate.toLocaleString('en-us', {month: 'long'});
     return `<div class="rangepicker__calendar">
         <div class="rangepicker__month-indicator">
-          <time datetime="November">${this.monthNames[this.currentDate.getMonth()]}</time>
+          <time datetime="${monthName}">${monthName}</time>
         </div>
         <div class="rangepicker__day-of-week">
-          <div>Пн</div>
-          <div>Вт</div>
-          <div>Ср</div>
-          <div>Чт</div>
-          <div>Пт</div>
-          <div>Сб</div>
-          <div>Вс</div>
+          ${this.getWeekDays()}
         </div>
         <div class="rangepicker__date-grid">
           ${this.getDaysList()}
@@ -126,19 +106,37 @@ export default class RangePicker {
   }
 
   getDaysList() {
-    let daysArray = [];
+    const daysArray = [];
     this.currentMonth = this.currentDate.getMonth();
-    daysArray.push(`<button type="button" class="rangepicker__cell ${this.getStateOfDay()}" data-value="${this.currentDate.toISOString()}" style="--start-from: ${this.currentDate.getDay()}">1</button>`);
-    for (let i = 2; i <= 32; i++) {
+    daysArray.push(`<button type="button" class="rangepicker__cell ${this.getStateOfDay()}" data-value="${this.currentDate.toISOString()}" style="--start-from: ${this.currentDate.getDay()}">${this.currentDate.getDate()}</button>`);
+    while (this.currentMonth === this.currentDate.getMonth()) {
       this.currentDate.setDate(this.currentDate.getDate() + 1);
-      if (this.currentMonth !== this.currentDate.getMonth()) {
-        this.currentMonth = this.currentDate.getMonth();
+      if (this.currentMonth === this.currentDate.getMonth()) {
+        daysArray.push(`<button type="button" class="rangepicker__cell ${this.getStateOfDay()}" data-value="${this.currentDate.toISOString()}">${this.currentDate.getDate()}</button>`);
+      } else {
         break;
       }
-      daysArray.push(`<button type="button" class="rangepicker__cell ${this.getStateOfDay()}" data-value="${this.currentDate.toISOString()}">${i}</button>`);
     }
+    this.currentMonth = this.currentDate.getMonth();
 
     return daysArray.join('');
+  }
+
+  getWeekDays() {
+    const weekDays = [];
+    let day = this.getMonday(this.currentDate);
+    for (let i = 0; i < 7; i++) {
+      weekDays.push(`<div>${day.toLocaleDateString('en-us', {weekday: 'short'})}</div>`)
+      day.setDate(day.getDate() + 1);
+    }
+    return weekDays.join('');
+  }
+
+  getMonday(currentDate) {
+    const date = new Date(currentDate.getTime());
+    const day = date.getDay(),
+      diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    return new Date(date.setDate(diff));
   }
 
   getStateOfDay() {
